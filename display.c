@@ -119,18 +119,16 @@ ISR(TIMER0_COMPA_vect)
 {
   //Increment global millis counter
   ++gDisplayMillis;
-
+  
   //Bring all digit select pins low
   DISPLAY_CHAR_SELECT_OUTPUT_REG &= ~kDisplayCharSelectPinMask;
   //Write char value
-  if (gDisplayCharCursor % 2) 
-    DISPLAY_CHAR_OUTPUT_REG = ~(gDisplayCharBuffer[gDisplayCharCursor / 2] & 0xcc);
-  else
-    DISPLAY_CHAR_OUTPUT_REG = ~(gDisplayCharBuffer[gDisplayCharCursor / 2] & 0x33);
-  //DISPLAY_CHAR_OUTPUT_REG = ~gDisplayCharBuffer[gDisplayCharCursor];
-  //Bring current digit select pin high
-  DISPLAY_CHAR_SELECT_OUTPUT_REG |= kDisplayCharSelect[gDisplayCharCursor / 2];
+  if (gDisplayCharCursor < DISPLAY_CHAR_COUNT) {
+    DISPLAY_CHAR_OUTPUT_REG = ~(gDisplayCharBuffer[gDisplayCharCursor]);
+    //Bring current digit select pin high
+    DISPLAY_CHAR_SELECT_OUTPUT_REG |= kDisplayCharSelect[gDisplayCharCursor];
+  }
   gDisplayCharCursor++;
-  if (gDisplayCharCursor == DISPLAY_CHAR_COUNT * 2)
-    gDisplayCharCursor = gDisplayCharBuffer[gDisplayCharCursor] ? 0 : 2; //Skip colon index 0 if not active
+  if (gDisplayCharCursor == DISPLAY_CHAR_COUNT + 16)
+    gDisplayCharCursor = gDisplayCharBuffer[gDisplayCharCursor] ? 0 : 1; //Skip colon index 0 if not active
 }

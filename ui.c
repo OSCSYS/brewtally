@@ -41,9 +41,17 @@ void ui_init(struct BrewTallySettings *settings)
   buttons_init();
 }
 
+static uint32_t gUiNextUpdate;
+static uint16_t gUiCount;
 void ui_update()
 {
-  display_write_number(9999 - millis()/1000, 0);
+  if (millis() > gUiNextUpdate ) {
+    gUiNextUpdate += 1000;
+    gUiCount++;
+    if (gUiCount > 9999)
+      gUiCount = 0;
+    display_write_number(9999 - gUiCount, 0);
+  }
 }
 
 void ui_state_enter(enum UiState state)

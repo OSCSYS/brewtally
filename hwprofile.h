@@ -28,7 +28,7 @@ static const uint8_t kDisplayCharSelect[DISPLAY_CHAR_COUNT] = {_BV(0), _BV(1), _
 
 static const uint8_t kDisplayTimerMode = _BV(WGM01);
 static const uint8_t kDisplayTimerInterruptMask = _BV(OCIE0A);
-static const uint8_t kDisplayTimerCompareValue = 0x3f;
+static const uint8_t kDisplayTimerCompareValue = 0x1f;
 static const uint8_t kDisplayTimerPrescaler = (_BV(CS00) | _BV(CS01));
 
 
