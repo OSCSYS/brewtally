@@ -34,6 +34,7 @@ static const uint8_t kDisplayTimerPrescaler = (_BV(CS00) | _BV(CS01));
 
 //Buttons input register
 #define BUTTONS_INPUT_REG      PIND
+#define BUTTONS_PULLUP_REG     PORTD
 
 //Buttons direction register
 #define BUTTONS_DIR_REG      DDRD

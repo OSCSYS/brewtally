@@ -112,7 +112,7 @@ uint32_t millis(void)
   { 
     ms = gDisplayMillis;
   } 
-  return ms;
+  return ms / 2;
 }
 
 ISR(TIMER0_COMPA_vect) 
@@ -130,5 +130,5 @@ ISR(TIMER0_COMPA_vect)
   }
   gDisplayCharCursor++;
   if (gDisplayCharCursor == DISPLAY_CHAR_COUNT + 16)
-    gDisplayCharCursor = gDisplayCharBuffer[gDisplayCharCursor] ? 0 : 1; //Skip colon index 0 if not active
+    gDisplayCharCursor = gDisplayCharBuffer[0] ? 0 : 1; //Skip colon index 0 if not active
 }

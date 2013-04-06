@@ -13,7 +13,7 @@ enum UiState {
   kUiStateNumStates
 };
 
-uint16_t gSampleCount = 0;
+static uint16_t gUiCount = 0;
 
 void ui_state_enter(enum UiState state);
 uint8_t ui_setup_reset(struct BrewTallySettings *settings);
@@ -39,19 +39,20 @@ void ui_init(struct BrewTallySettings *settings)
   ui_state_enter(kUiStateOff);
   display_init();
   buttons_init();
+  display_write_number(gUiCount, 0);
 }
 
-static uint32_t gUiNextUpdate;
-static uint16_t gUiCount;
 void ui_update()
 {
-  if (millis() > gUiNextUpdate ) {
-    gUiNextUpdate += 1000;
-    gUiCount++;
-    if (gUiCount > 9999)
-      gUiCount = 0;
-    display_write_number(9999 - gUiCount, 0);
-  }
+  uint16_t lastCount = gUiCount;
+  if (button_ok(kButtonSample))
+    ++gUiCount;
+  if (button_cancel(kButtonSample))
+    --gUiCount;
+  if (button_cancel(kButtonSelect))
+    gUiCount = 0;
+  if (lastCount != gUiCount)
+    display_write_number(gUiCount, 0);
 }
 
 void ui_state_enter(enum UiState state)
