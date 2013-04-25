@@ -13,7 +13,7 @@ static const uint16_t kButtonCancelDuration = 1000;
 static volatile uint32_t gButtonStartTime[kButtonCount];
 static volatile enum ButtonState gButtonState[kButtonCount];
 
-void button_doClick(enum ButtonIndex button);
+void buttonISR(enum ButtonIndex button);
 
 void buttons_init(void)
 {
@@ -68,63 +68,43 @@ uint8_t button_raw(enum ButtonIndex button)
 ISR(BUTTON_SELECT_VECTOR) 
 {
   cli();
-  switch (gButtonState[kButtonSelect]) {
-    case kButtonStateIdle:
-      //Button is pushed (ActiveLow)
-      if (!(BUTTONS_INPUT_REG & kButtonMasks[kButtonSelect])) {    
-        gButtonState[kButtonSelect] = kButtonStateClicked;
-        gButtonStartTime[kButtonSelect] = millis();
-      }
-      break;
-    case kButtonStateClicked:
-      {
-        //Assumes interrupt must be enter release
-        uint16_t clickDuration = millis() - gButtonStartTime[kButtonSelect];
-        if(clickDuration < kButtonOKDuration) {
-          gButtonState[kButtonSelect] = kButtonStateIdle;
-          break;
-        }
-        if (clickDuration < kButtonCancelDuration) {
-          gButtonState[kButtonSelect] = kButtonStateOK;
-          break;
-        }
-        gButtonState[kButtonSelect] = kButtonStateCancel;
-      }
-    default:
-      //Events in OK/Cancel state ignored
-      break;
-  }
+  buttonISR(kButtonSelect);
   sei();
 }
 
 ISR(BUTTON_SAMPLE_VECTOR) 
 {
   cli();
-  switch (gButtonState[kButtonSample]) {
+  buttonISR(kButtonSample);
+  sei();
+}
+
+void buttonISR(enum ButtonIndex button) 
+{
+  switch (gButtonState[button]) {
     case kButtonStateIdle:
       //Button is pushed (ActiveLow)
-      if (!(BUTTONS_INPUT_REG & kButtonMasks[kButtonSample])) {    
-        gButtonState[kButtonSample] = kButtonStateClicked;
-        gButtonStartTime[kButtonSample] = millis();
+      if (!(BUTTONS_INPUT_REG & kButtonMasks[button])) {    
+        gButtonState[button] = kButtonStateClicked;
+        gButtonStartTime[button] = millis();
       }
       break;
     case kButtonStateClicked:
       {
         //Assumes interrupt must be enter release
-        uint16_t clickDuration = millis() - gButtonStartTime[kButtonSample];
+        uint16_t clickDuration = millis() - gButtonStartTime[button];
         if(clickDuration < kButtonOKDuration) {
-          gButtonState[kButtonSample] = kButtonStateIdle;
+          gButtonState[button] = kButtonStateIdle;
           break;
         }
         if (clickDuration < kButtonCancelDuration) {
-          gButtonState[kButtonSample] = kButtonStateOK;
+          gButtonState[button] = kButtonStateOK;
           break;
         }
-        gButtonState[kButtonSample] = kButtonStateCancel;
+        gButtonState[button] = kButtonStateCancel;
       }
     default:
       //Events in OK/Cancel state ignored
       break;
   }
-  sei();
 }

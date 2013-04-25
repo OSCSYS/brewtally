@@ -51,6 +51,7 @@ void ui_update()
     --gUiCount;
   if (button_cancel(kButtonSelect))
     gUiCount = 0;
+  button_ok(kButtonSelect); //Dummy call to clear state
   if (lastCount != gUiCount)
     display_write_number(gUiCount, 0);
 }
