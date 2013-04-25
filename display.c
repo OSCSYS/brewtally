@@ -63,11 +63,12 @@ void display_init(void)
   DISPLAY_CHAR_DIR_REG |= kDisplayCharPinMask;                    //Enable Char pins as outputs
   DISPLAY_CHAR_SELECT_OUTPUT_REG &= ~kDisplayCharSelectPinMask;
   DISPLAY_CHAR_OUTPUT_REG = kDisplayCharPinMask;
-  DISPLAY_TIMER_CONFIG_A_REG |= kDisplayTimerMode;                //Configure timer for CTC mode 
+  
+  DISPLAY_TIMER_MODE_REG |= kDisplayTimerMode;                    //Configure timer for CTC mode 
   DISPLAY_TIMER_INTERRUPT_MASK_REG |= kDisplayTimerInterruptMask; //Enable timer interrupt
   sei();                                                          //Enable global interrupts 
   DISPLAY_TIMER_COMPARE_VALUE_REG = kDisplayTimerCompareValue;    //Set compare value for a compare rate of 1kHz 
-  DISPLAY_TIMER_CONFIG_B_REG |= kDisplayTimerPrescaler;           //Set timer prescaler
+  DISPLAY_TIMER_PRESCALER_REG |= kDisplayTimerPrescaler;          //Set timer prescaler
 }
 
 void display_write_number(int number, uint8_t precision)
@@ -115,7 +116,7 @@ uint32_t millis(void)
   return ms / 2;
 }
 
-ISR(TIMER0_COMPA_vect) 
+ISR(DISPLAY_TIMER_VECTOR) 
 {
   //Increment global millis counter
   ++gDisplayMillis;

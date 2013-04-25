@@ -3,108 +3,86 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h> 
 
-#include "display.h" //Provides millis()
 #include "hwprofile.h"
 
-static const uint16_t kButtonOKDuration = 50;
-static const uint16_t kButtonCancelDuration = 1000;
+#define REPEAT_MASK (kButtonSelect | kButtonSample)  //Enable repeat logic
+#define REPEAT_START 100 //After 1s 
+#define REPEAT_NEXT 50  //Every 500ms
 
-//Global Encoder Variables
-static volatile uint32_t gButtonStartTime[kButtonCount];
-static volatile enum ButtonState gButtonState[kButtonCount];
+//Global Button Variables
+static volatile uint8_t gButtonState;
+static volatile uint8_t gButtonPress;
+static volatile uint8_t gButtonRepeat; 
 
-void buttonISR(enum ButtonIndex button);
+ISR(BUTTON_TIMER_VECTOR)
+{
+  static uint8_t count0, count1, repeat;
+  uint8_t i;
+ 
+  i = gButtonState ^ ~BUTTONS_INPUT_REG;             //Button changed?
+  count0 = ~(count0 & i);                            //Reset or count count0
+  count1 = count0 ^ (count1 & i);                    //Reset or count count1
+  i &= count0 & count1;                              //Count until roll over ?
+  gButtonState ^= i;                                 //Then toggle debounced state
+  gButtonPress |= gButtonState & i;                  //0->1: Button press detect
+ 
+  if( (gButtonState & REPEAT_MASK) == 0 )            //Check repeat function
+     repeat = REPEAT_START;                          //Start delay
+  if( --repeat == 0 ){
+    repeat = REPEAT_NEXT;                            //Repeat delay
+    gButtonRepeat |= gButtonState & REPEAT_MASK;
+  }
+}
 
 void buttons_init(void)
 {
-  for (uint8_t i = 0; i < kButtonCount; ++i) {
-    gButtonStartTime[i] = 0;
-    gButtonState[i] = kButtonStateIdle;
-  }
-
   //Set pin directions and enable pull ups
-  BUTTONS_DIR_REG &= ~(kButtonMasks[kButtonSelect] | kButtonMasks[kButtonSample] );
-  BUTTONS_PULLUP_REG |= kButtonMasks[kButtonSelect] | kButtonMasks[kButtonSample];
+  BUTTONS_DIR_REG &= ~(kButtonSelect | kButtonSample);
+  BUTTONS_PULLUP_REG |= kButtonSelect | kButtonSample;
   
-  //Enable Buttons Interrupt
-  MCUCR |= kButtonsInterruptSense;
-  GIMSK |= kButtonsInterruptEn;
-  
-  //Enable global interrupts 
-  sei();
+  BUTTON_TIMER_MODE_REG |= kButtonTimerMode;                    //Configure timer for CTC mode 
+  BUTTON_TIMER_INTERRUPT_MASK_REG |= kButtonTimerInterruptMask; //Enable timer interrupt
+  sei();                                                        //Enable global interrupts 
+  BUTTON_TIMER_COMPARE_VALUE_REG = kButtonTimerCompareValue;    //Set compare value for a compare rate of 1kHz 
+  BUTTON_TIMER_PRESCALER_REG |= kButtonTimerPrescaler;           //Set timer prescaler
 }
 
-uint8_t button_ok(enum ButtonIndex button)
-{
-  if(gButtonState[button] == kButtonStateOK) {
-    gButtonState[button] = kButtonStateIdle;
-    return 1;
-  }
-  return 0;
-}
-
-uint8_t button_cancel(enum ButtonIndex button)
-{
-  uint32_t timestamp = millis();
-  uint32_t buttonStart;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { 
-    buttonStart = gButtonStartTime[button];
-  }
-  cli();
-  if((gButtonState[button] == kButtonStateCancel) || ((gButtonState[button] == kButtonStateClicked) && (buttonStart + kButtonCancelDuration < timestamp))) {
-    gButtonState[button] = kButtonStateIdle;
-    sei();
-    return 1;
-  }
-  sei();
-  return 0;
-}
-
-uint8_t button_raw(enum ButtonIndex button)
-{
-  return !(BUTTONS_INPUT_REG & kButtonMasks[button]);
-}
-
-ISR(BUTTON_SELECT_VECTOR) 
+uint8_t button_press(uint8_t button)
 {
   cli();
-  buttonISR(kButtonSelect);
+  button &= gButtonPress;
+  gButtonPress ^= button;
   sei();
+  return button;
 }
 
-ISR(BUTTON_SAMPLE_VECTOR) 
+uint8_t button_repeat(uint8_t button)
 {
   cli();
-  buttonISR(kButtonSample);
+  button &= gButtonRepeat;
+  gButtonRepeat ^= button;
   sei();
+  return button;
 }
 
-void buttonISR(enum ButtonIndex button) 
+uint8_t button_state(uint8_t button)
 {
-  switch (gButtonState[button]) {
-    case kButtonStateIdle:
-      //Button is pushed (ActiveLow)
-      if (!(BUTTONS_INPUT_REG & kButtonMasks[button])) {    
-        gButtonState[button] = kButtonStateClicked;
-        gButtonStartTime[button] = millis();
-      }
-      break;
-    case kButtonStateClicked:
-      {
-        //Assumes interrupt must be enter release
-        uint16_t clickDuration = millis() - gButtonStartTime[button];
-        if(clickDuration < kButtonOKDuration) {
-          gButtonState[button] = kButtonStateIdle;
-          break;
-        }
-        if (clickDuration < kButtonCancelDuration) {
-          gButtonState[button] = kButtonStateOK;
-          break;
-        }
-        gButtonState[button] = kButtonStateCancel;
-      }
-    default:
-      //Events in OK/Cancel state ignored
-      break;
-  }
+  button &= gButtonState;
+  return button;
+}
+
+uint8_t button_short (uint8_t button)
+{
+  cli();
+  return button_press(~gButtonState & button);
+}
+ 
+uint8_t button_long (uint8_t button)
+{
+  return button_press(button_repeat(button));
+}
+
+uint8_t button_raw (uint8_t button)
+{
+  return (button & (~BUTTONS_INPUT_REG));
 }

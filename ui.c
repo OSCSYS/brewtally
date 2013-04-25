@@ -45,13 +45,17 @@ void ui_init(struct BrewTallySettings *settings)
 void ui_update()
 {
   uint16_t lastCount = gUiCount;
-  if (button_ok(kButtonSample))
+  if (button_short(kButtonSample))
     ++gUiCount;
-  if (button_cancel(kButtonSample))
+  if (button_long(kButtonSample))
     --gUiCount;
-  if (button_cancel(kButtonSelect))
+  
+  if (button_short(kButtonSelect)) {
+    //Not Implemented
+  }
+  if (button_long(kButtonSelect))
     gUiCount = 0;
-  button_ok(kButtonSelect); //Dummy call to clear state
+
   if (lastCount != gUiCount)
     display_write_number(gUiCount, 0);
 }
