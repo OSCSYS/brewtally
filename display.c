@@ -48,13 +48,18 @@ static const uint8_t kCharTable[] = { 0xfc, //0
 
 static const uint8_t kCharDecimal = 0x01;
 
+#define DISPLAY_FRAME_COUNT 3
+static const uint16_t kDisplayFrameTime = 2000;
+
 //Global Char values for timer interrupt ISRs
-static uint8_t gDisplayCharBuffer[DISPLAY_CHAR_COUNT];
-
-//Global Char Scan Cursor Position for ISR: 0-2
+static uint8_t gDisplayCharBuffer[DISPLAY_FRAME_COUNT][DISPLAY_CHAR_COUNT];
+static uint8_t gActiveFrames = 0;
+static volatile uint8_t gFrameCursor = 0;
 static volatile uint8_t gDisplayCharCursor = 0;
+static volatile uint32_t gDisplayFrameTimestamp = 0;
 
-//Global millis counter
+//Global tick and millis counter
+static volatile uint8_t gDisplayTick = 0;
 static volatile uint32_t gDisplayMillis = 0;
 
 void display_init(void)
@@ -69,29 +74,54 @@ void display_init(void)
   sei();                                                          //Enable global interrupts 
   DISPLAY_TIMER_COMPARE_VALUE_REG = kDisplayTimerCompareValue;    //Set compare value for a compare rate of 1kHz 
   DISPLAY_TIMER_PRESCALER_REG |= kDisplayTimerPrescaler;          //Set timer prescaler
+  display_clear();
 }
 
-void display_write_number(int number, uint8_t precision)
+void display_clear(void)
+{
+  cli();
+  for (uint8_t frame = DISPLAY_FRAME_COUNT; frame; --frame) {
+    for (uint8_t i = DISPLAY_CHAR_COUNT; i; --i) {
+      gDisplayCharBuffer[frame][i] = 0;
+    }
+  }
+  gActiveFrames = 0;
+  sei();
+}
+
+void display_write_number(uint8_t frame, int number, uint8_t precision)
 {
   if (number > DISPLAY_MAX_NUMBER || number < 0)
     return;
+  if (frame >= DISPLAY_FRAME_COUNT)
+    return;
+  cli();
+  if (frame >= gActiveFrames)
+    gActiveFrames = frame + 1;
   char displayNum[DISPLAY_DIGIT_COUNT + 1];
   itoa(number, displayNum, 10);
   uint8_t displayLen = strlen(displayNum);
   
-  
   //gDisplayCharBuffer[0] = colon, 1-4 = digits
   for(uint8_t i = DISPLAY_DIGIT_COUNT; i; --i) {
-    gDisplayCharBuffer[i] = displayLen < i ? 0 : kCharTable[displayNum[displayLen - i] - '0'];
+    gDisplayCharBuffer[frame][i] = displayLen < i ? 0 : kCharTable[displayNum[displayLen - i] - '0'];
     if (precision && (precision + 1 == i))
-      gDisplayCharBuffer[i] |= kCharDecimal;
+      gDisplayCharBuffer[frame][i] |= kCharDecimal;
     else
-      gDisplayCharBuffer[i] &= ~kCharDecimal;
+      gDisplayCharBuffer[frame][i] &= ~kCharDecimal;
   }
+  gFrameCursor = frame;
+  gDisplayFrameTimestamp = gDisplayMillis;
+  sei();
 }
 
-void display_write_string(const char *text)
+void display_write_string(uint8_t frame, const char *text)
 {
+  cli();
+  if (frame >= DISPLAY_FRAME_COUNT)
+    return;
+  if (frame >= gActiveFrames)
+    gActiveFrames = frame + 1;
   uint8_t cursor = DISPLAY_DIGIT_COUNT;
   while(*text && cursor) {
     uint8_t bmp = 0x00;
@@ -101,35 +131,47 @@ void display_write_string(const char *text)
       bmp = kCharTable[*text - 55];        //Handle A-U
     else if (*text >= 'a' && *text <= 'z')
       bmp = kCharTable[*text - 87];        //Handle A-U
-    gDisplayCharBuffer[cursor--] = bmp;
+    gDisplayCharBuffer[frame][cursor--] = bmp;
     ++text;
   }
+  gFrameCursor = frame;
+  gDisplayFrameTimestamp = gDisplayMillis;
+  sei();
 }
 
 uint32_t millis(void)
 {
   unsigned long ms;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) 
-  { 
-    ms = gDisplayMillis;
-  } 
-  return ms / 2;
+  cli();
+  ms = gDisplayMillis;
+  sei(); 
+  return ms;
 }
 
 ISR(DISPLAY_TIMER_VECTOR) 
 {
-  //Increment global millis counter
-  ++gDisplayMillis;
+  cli();
+  if (++gDisplayTick & 1)
+    ++gDisplayMillis;    //Increment global millis counter on every other tick
   
-  //Bring all digit select pins low
-  DISPLAY_CHAR_SELECT_OUTPUT_REG &= ~kDisplayCharSelectPinMask;
-  //Write char value
-  if (gDisplayCharCursor < DISPLAY_CHAR_COUNT) {
-    DISPLAY_CHAR_OUTPUT_REG = ~(gDisplayCharBuffer[gDisplayCharCursor]);
-    //Bring current digit select pin high
-    DISPLAY_CHAR_SELECT_OUTPUT_REG |= kDisplayCharSelect[gDisplayCharCursor];
+  DISPLAY_CHAR_SELECT_OUTPUT_REG &= ~kDisplayCharSelectPinMask; //Bring all digit select pins low
+  
+  if(!gActiveFrames)    //Short-circuit when no screens active
+    return; 
+    
+  if (gDisplayCharCursor < DISPLAY_CHAR_COUNT) { //Ignore dummy cycles
+    DISPLAY_CHAR_OUTPUT_REG = ~(gDisplayCharBuffer[gFrameCursor][gDisplayCharCursor]); //Write char value
+    DISPLAY_CHAR_SELECT_OUTPUT_REG |= kDisplayCharSelect[gDisplayCharCursor]; //Bring current digit select pin high
   }
-  gDisplayCharCursor++;
-  if (gDisplayCharCursor == DISPLAY_CHAR_COUNT + 16)
-    gDisplayCharCursor = gDisplayCharBuffer[0] ? 0 : 1; //Skip colon index 0 if not active
+  
+  if (gDisplayMillis - gDisplayFrameTimestamp > kDisplayFrameTime) { //Handle frame change
+    gFrameCursor++;
+    if (gFrameCursor >= gActiveFrames) //Frame roll over
+      gFrameCursor = 0;
+    gDisplayFrameTimestamp = gDisplayMillis;
+  }
+  
+  if (++gDisplayCharCursor == DISPLAY_CHAR_COUNT + 16)  //Char scan with dummy cycles to reduce power consumption
+    gDisplayCharCursor = gDisplayCharBuffer[gFrameCursor][0] ? 0 : 1; //Skip colon index 0 if not active
+  sei();
 }
