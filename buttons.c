@@ -16,6 +16,7 @@ static volatile uint8_t gButtonRepeat;
 
 ISR(BUTTON_TIMER_VECTOR)
 {
+  cli();
   static uint8_t count0, count1, repeat;
   uint8_t i;
  
@@ -32,6 +33,7 @@ ISR(BUTTON_TIMER_VECTOR)
     repeat = REPEAT_NEXT;                            //Repeat delay
     gButtonRepeat |= gButtonState & REPEAT_MASK;
   }
+  sei();
 }
 
 void buttons_init(void)
