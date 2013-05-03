@@ -1,6 +1,15 @@
 #ifndef BREWTALLY_HWPROFILE_H_
 #define BREWTALLY_HWPROFILE_H_
 
+//Status output registers
+#define STATUS_OUTPUT_REG   PORTA
+
+//Status direction registers
+#define STATUS_DIR_REG      DDRA
+
+//Status pin bitmask
+static const uint8_t kStatusPinMask  = 0x02;
+
 //Display output registers
 #define DISPLAY_CHAR_SELECT_OUTPUT_REG PORTD
 #define DISPLAY_CHAR_OUTPUT_REG        PORTB

@@ -7,6 +7,7 @@
 #include "calcs.h"
 #include "display.h"
 #include "hwprofile.h"
+#include "status.h"
 
 enum UiState {
   kUiStateOff,
@@ -37,10 +38,11 @@ void ui_init(struct BrewTallySettings *settings)
 {
   gUiSettings = settings;
   ui_state_enter(kUiStateOff);
+  status_init();
   display_init();
   buttons_init();
-  display_write_number(0, gUiCount, 0);
-  display_write_string(1, "beer");
+  display_write_string(1, "dCnt"); //Write Last frame first so focus "lands" on first frame
+  display_write_number(0, gUiCount);
 }
 
 void ui_update()
@@ -58,7 +60,7 @@ void ui_update()
     gUiCount = 0;
 
   if (lastCount != gUiCount)
-    display_write_number(0, gUiCount, 0);
+    display_write_number(0, gUiCount);
 }
 
 void ui_state_enter(enum UiState state)

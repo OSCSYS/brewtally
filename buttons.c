@@ -16,7 +16,6 @@ static volatile uint8_t gButtonRepeat;
 
 ISR(BUTTON_TIMER_VECTOR)
 {
-  cli();
   static uint8_t count0, count1, repeat;
   uint8_t i;
  
@@ -33,7 +32,6 @@ ISR(BUTTON_TIMER_VECTOR)
     repeat = REPEAT_NEXT;                            //Repeat delay
     gButtonRepeat |= gButtonState & REPEAT_MASK;
   }
-  sei();
 }
 
 void buttons_init(void)
@@ -51,19 +49,19 @@ void buttons_init(void)
 
 uint8_t button_press(uint8_t button)
 {
-  cli();
-  button &= gButtonPress;
-  gButtonPress ^= button;
-  sei();
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    button &= gButtonPress;
+    gButtonPress ^= button;
+  }
   return button;
 }
 
 uint8_t button_repeat(uint8_t button)
 {
-  cli();
-  button &= gButtonRepeat;
-  gButtonRepeat ^= button;
-  sei();
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    button &= gButtonRepeat;
+    gButtonRepeat ^= button;
+  }
   return button;
 }
 
@@ -75,8 +73,10 @@ uint8_t button_state(uint8_t button)
 
 uint8_t button_short (uint8_t button)
 {
-  cli();
-  return button_press(~gButtonState & button);
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    button = button_press(~gButtonState & button);
+  }
+  return button;
 }
  
 uint8_t button_long (uint8_t button)

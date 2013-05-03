@@ -1,13 +1,11 @@
 #include "display.h"
 
-#include <stdlib.h>
-#include <string.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h> 
 
 #include "hwprofile.h"
 
-//Character definitions (PORT BIT TO SEGMENT MAP: ABCDEFGH) ED.C GBFA
+//Character definitions (PORT BIT TO SEGMENT MAP: ABCDEFGH)
 static const uint8_t kCharTable[] = { 0xfc, //0
                                       0x60, //1
                                       0xda, //2
@@ -31,7 +29,7 @@ static const uint8_t kCharTable[] = { 0xfc, //0
                                       0x00, //K NOT SUPPORTED
                                       0x1c, //L
                                       0x00, //M NOT SUPPORTED
-                                      0xec, //N (alt. n 0x98)
+                                      0x2a, //n (alt. N 0xec)
                                       0xfc, //o (alt. 0 0xd8)
                                       0xce, //P
                                       0xe6, //q
@@ -79,50 +77,43 @@ void display_init(void)
 
 void display_clear(void)
 {
-  cli();
   for (uint8_t frame = DISPLAY_FRAME_COUNT; frame; --frame) {
     for (uint8_t i = DISPLAY_CHAR_COUNT; i; --i) {
       gDisplayCharBuffer[frame][i] = 0;
     }
   }
   gActiveFrames = 0;
-  sei();
 }
 
-void display_write_number(uint8_t frame, int number, uint8_t precision)
+void display_write_number(uint8_t frame, uint16_t number)
 {
-  if (number > DISPLAY_MAX_NUMBER || number < 0)
+  if (number > DISPLAY_MAX_NUMBER)
     return;
   if (frame >= DISPLAY_FRAME_COUNT)
     return;
-  cli();
-  if (frame >= gActiveFrames)
-    gActiveFrames = frame + 1;
-  char displayNum[DISPLAY_DIGIT_COUNT + 1];
-  itoa(number, displayNum, 10);
-  uint8_t displayLen = strlen(displayNum);
-  
-  //gDisplayCharBuffer[0] = colon, 1-4 = digits
-  for(uint8_t i = DISPLAY_DIGIT_COUNT; i; --i) {
-    gDisplayCharBuffer[frame][i] = displayLen < i ? 0 : kCharTable[displayNum[displayLen - i] - '0'];
-    if (precision && (precision + 1 == i))
-      gDisplayCharBuffer[frame][i] |= kCharDecimal;
-    else
-      gDisplayCharBuffer[frame][i] &= ~kCharDecimal;
+ 
+  for(uint8_t i = 1; i <= DISPLAY_DIGIT_COUNT; ++i) {
+    gDisplayCharBuffer[frame][i] = (number || (i == 1)) ? kCharTable[number % 10] : 0;
+    number /= 10;
   }
-  gFrameCursor = frame;
-  gDisplayFrameTimestamp = gDisplayMillis;
-  sei();
+  
+  if (frame >= gActiveFrames)
+    gActiveFrames = frame + 1;  
+  display_frame_focus(frame);
+}
+
+void display_write_decimal(uint8_t frame, uint8_t digit)
+{
+  if (digit <= DISPLAY_DIGIT_COUNT)
+    gDisplayCharBuffer[frame][digit] |= kCharDecimal;
 }
 
 void display_write_string(uint8_t frame, const char *text)
 {
-  cli();
   if (frame >= DISPLAY_FRAME_COUNT)
     return;
-  if (frame >= gActiveFrames)
-    gActiveFrames = frame + 1;
   uint8_t cursor = DISPLAY_DIGIT_COUNT;
+
   while(*text && cursor) {
     uint8_t bmp = 0x00;
     if(*text >= '0' && *text <= '9')
@@ -134,23 +125,31 @@ void display_write_string(uint8_t frame, const char *text)
     gDisplayCharBuffer[frame][cursor--] = bmp;
     ++text;
   }
-  gFrameCursor = frame;
-  gDisplayFrameTimestamp = gDisplayMillis;
-  sei();
+  if (frame >= gActiveFrames)
+    gActiveFrames = frame + 1;  
+  display_frame_focus(frame);
 }
 
+void display_frame_focus(uint8_t frame) {
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    gFrameCursor = frame;
+    gDisplayFrameTimestamp = gDisplayMillis;
+  }
+}
+
+#ifdef DISPLAY_ENABLE_MILLIS
 uint32_t millis(void)
 {
   unsigned long ms;
-  cli();
-  ms = gDisplayMillis;
-  sei(); 
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+    ms = gDisplayMillis;
+  }
   return ms;
 }
+#endif
 
 ISR(DISPLAY_TIMER_VECTOR) 
 {
-  cli();
   if (++gDisplayTick & 1)
     ++gDisplayMillis;    //Increment global millis counter on every other tick
   
@@ -173,5 +172,4 @@ ISR(DISPLAY_TIMER_VECTOR)
   
   if (++gDisplayCharCursor == DISPLAY_CHAR_COUNT + 16)  //Char scan with dummy cycles to reduce power consumption
     gDisplayCharCursor = gDisplayCharBuffer[gFrameCursor][0] ? 0 : 1; //Skip colon index 0 if not active
-  sei();
 }
