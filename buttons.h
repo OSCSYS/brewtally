@@ -4,6 +4,11 @@
 #include <stdint.h>
 #include <avr/io.h> 
 
+enum ButtonMask {
+  kButtonSelect = _BV(3),
+  kButtonSample = _BV(2)
+};
+
 //Function declarations
 void buttons_init(void);
 

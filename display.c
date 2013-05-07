@@ -1,63 +1,93 @@
 #include "display.h"
 
 #include <avr/interrupt.h>
+#include <avr/io.h> 
+#include <avr/pgmspace.h>
 #include <util/atomic.h> 
 
-#include "hwprofile.h"
-
 //Character definitions (PORT BIT TO SEGMENT MAP: ABCDEFGH)
-static const uint8_t kCharTable[] = { 0xfc, //0
-                                      0x60, //1
-                                      0xda, //2
-                                      0xf2, //3
-                                      0x66, //4
-                                      0xb6, //5
-                                      0xbe, //6
-                                      0xe0, //7
-                                      0xfe, //8
-                                      0xf6, //9
-                                      0xee, //A
-                                      0x3e, //b
-                                      0x9c, //C (alt. c 0xc8)
-                                      0x7a, //d
-                                      0x9e, //E
-                                      0x8e, //F
-                                      0xbc, //G
-                                      0x6e, //H (alt. h 0x9a)
-                                      0x0c, //i
-                                      0x78, //J
-                                      0x00, //K NOT SUPPORTED
-                                      0x1c, //L
-                                      0x00, //M NOT SUPPORTED
-                                      0x2a, //n (alt. N 0xec)
-                                      0xfc, //o (alt. 0 0xd8)
-                                      0xce, //P
-                                      0xe6, //q
-                                      0x0A, //r
-                                      0xb6, //S (dupe of 5)
-                                      0x1e, //t
-                                      0x7c, //U (alt. u 0xd0)
-                                      0x00, //V NOT SUPPORTED
-                                      0x00, //W NOT SUPPORTED
-                                      0x00, //X NOT SUPPORTED
-                                      0x76, //y
-                                      0x00  //Z NOT SUPPORTED
+static const uint8_t PROGMEM kCharTable[] = { 0xfc, //0
+                                              0x60, //1
+                                              0xda, //2
+                                              0xf2, //3
+                                              0x66, //4
+                                              0xb6, //5
+                                              0xbe, //6
+                                              0xe0, //7
+                                              0xfe, //8
+                                              0xf6, //9
+                                              0xee, //A
+                                              0x3e, //b
+                                              0x9c, //C (alt. c 0xc8)
+                                              0x7a, //d
+                                              0x9e, //E
+                                              0x8e, //F
+                                              0xbc, //G
+                                              0x6e, //H (alt. h 0x9a)
+                                              0x0c, //i
+                                              0x78, //J
+                                              0x00, //K NOT SUPPORTED
+                                              0x1c, //L
+                                              0x00, //M NOT SUPPORTED
+                                              0x2a, //n (alt. N 0xec)
+                                              0xfc, //o (alt. 0 0xd8)
+                                              0xce, //P
+                                              0xe6, //q
+                                              0x0A, //r
+                                              0xb6, //S (dupe of 5)
+                                              0x1e, //t
+                                              0x7c, //U (alt. u 0xd0)
+                                              0x00, //V NOT SUPPORTED
+                                              0x00, //W NOT SUPPORTED
+                                              0x00, //X NOT SUPPORTED
+                                              0x76, //y
+                                              0xda  //Z (dupe of 2)
 };
 
 static const uint8_t kCharDecimal = 0x01;
 
+#define DISPLAY_CHAR_COUNT 5
+#define DISPLAY_DIGIT_COUNT 4
+#define DISPLAY_DIGIT_OFFSET 1
+#define DISPLAY_MAX_NUMBER 9999
 #define DISPLAY_FRAME_COUNT 3
 static const uint16_t kDisplayFrameTime = 2000;
 
+//Display output registers
+#define DISPLAY_CHAR_SELECT_OUTPUT_REG PORTD
+#define DISPLAY_CHAR_OUTPUT_REG        PORTB
+
+//Display direction registers
+#define DISPLAY_CHAR_SELECT_DIR_REG   DDRD
+#define DISPLAY_CHAR_DIR_REG          DDRB
+
+//Display pin bitmasks
+static const uint8_t kDisplayCharSelectPinMask  = 0x73;
+static const uint8_t kDisplayCharPinMask         = 0xff;
+
+//Display char select bit map
+static const uint8_t kDisplayCharSelect[DISPLAY_CHAR_COUNT] = {_BV(0), _BV(1), _BV(4), _BV(5), _BV(6)};
+
+//Display Timer Configuration
+#define DISPLAY_TIMER_VECTOR              TIMER0_COMPA_vect
+#define DISPLAY_TIMER_MODE_REG            TCCR0A
+#define DISPLAY_TIMER_PRESCALER_REG       TCCR0B
+#define DISPLAY_TIMER_INTERRUPT_MASK_REG  TIMSK
+#define DISPLAY_TIMER_COMPARE_VALUE_REG   OCR0A
+static const uint8_t kDisplayTimerMode = _BV(WGM01);
+static const uint8_t kDisplayTimerInterruptMask = _BV(OCIE0A);
+static const uint8_t kDisplayTimerCompareValue = 0x1f;
+static const uint8_t kDisplayTimerPrescaler = (_BV(CS00) | _BV(CS01));
+
+
 //Global Char values for timer interrupt ISRs
-static uint8_t gDisplayCharBuffer[DISPLAY_FRAME_COUNT][DISPLAY_CHAR_COUNT];
-static uint8_t gActiveFrames = 0;
+static volatile uint8_t gDisplayCharBuffer[DISPLAY_FRAME_COUNT][DISPLAY_CHAR_COUNT];
+static volatile uint8_t gActiveFrames = 0;
 static volatile uint8_t gFrameCursor = 0;
 static volatile uint8_t gDisplayCharCursor = 0;
 static volatile uint32_t gDisplayFrameTimestamp = 0;
 
-//Global tick and millis counter
-static volatile uint8_t gDisplayTick = 0;
+//Global millis counter
 static volatile uint32_t gDisplayMillis = 0;
 
 void display_init(void)
@@ -68,44 +98,42 @@ void display_init(void)
   DISPLAY_CHAR_OUTPUT_REG = kDisplayCharPinMask;
   
   DISPLAY_TIMER_MODE_REG |= kDisplayTimerMode;                    //Configure timer for CTC mode 
-  DISPLAY_TIMER_INTERRUPT_MASK_REG |= kDisplayTimerInterruptMask; //Enable timer interrupt
-  sei();                                                          //Enable global interrupts 
   DISPLAY_TIMER_COMPARE_VALUE_REG = kDisplayTimerCompareValue;    //Set compare value for a compare rate of 1kHz 
   DISPLAY_TIMER_PRESCALER_REG |= kDisplayTimerPrescaler;          //Set timer prescaler
   display_clear();
+  DISPLAY_TIMER_INTERRUPT_MASK_REG |= kDisplayTimerInterruptMask; //Enable timer interrupt
+  sei();                                                          //Enable global interrupts 
 }
 
 void display_clear(void)
 {
-  for (uint8_t frame = DISPLAY_FRAME_COUNT; frame; --frame) {
-    for (uint8_t i = DISPLAY_CHAR_COUNT; i; --i) {
-      gDisplayCharBuffer[frame][i] = 0;
+  for (uint8_t f = 0; f < DISPLAY_FRAME_COUNT; f++) {
+    for (uint8_t c = 0; c < DISPLAY_CHAR_COUNT; c++) {
+      gDisplayCharBuffer[f][c] = 0;
     }
   }
   gActiveFrames = 0;
 }
 
-void display_write_number(uint8_t frame, uint16_t number)
+void display_write_number(uint8_t frame, uint16_t number, uint8_t precision)
 {
-  if (number > DISPLAY_MAX_NUMBER)
+  if (frame >= DISPLAY_FRAME_COUNT
+      || number > DISPLAY_MAX_NUMBER
+      || precision >= DISPLAY_DIGIT_COUNT)
     return;
-  if (frame >= DISPLAY_FRAME_COUNT)
-    return;
- 
+  
+  uint8_t spacePad = precision ? precision + 2: 2; //Set minimum number of displayed digits
   for(uint8_t i = 1; i <= DISPLAY_DIGIT_COUNT; ++i) {
-    gDisplayCharBuffer[frame][i] = (number || (i == 1)) ? kCharTable[number % 10] : 0;
+    uint8_t digit = number % 10;
+    gDisplayCharBuffer[frame][i] = (number || i < spacePad) ? pgm_read_byte(&kCharTable[digit]) : 0;
     number /= 10;
   }
-  
+  if (precision)
+    gDisplayCharBuffer[frame][precision + 1] |= kCharDecimal;
+    
   if (frame >= gActiveFrames)
     gActiveFrames = frame + 1;  
   display_frame_focus(frame);
-}
-
-void display_write_decimal(uint8_t frame, uint8_t digit)
-{
-  if (digit <= DISPLAY_DIGIT_COUNT)
-    gDisplayCharBuffer[frame][digit] |= kCharDecimal;
 }
 
 void display_write_string(uint8_t frame, const char *text)
@@ -113,16 +141,15 @@ void display_write_string(uint8_t frame, const char *text)
   if (frame >= DISPLAY_FRAME_COUNT)
     return;
   uint8_t cursor = DISPLAY_DIGIT_COUNT;
-
   while(*text && cursor) {
-    uint8_t bmp = 0x00;
+    uint8_t offset = 0;
     if(*text >= '0' && *text <= '9')
-      bmp = kCharTable[*text - '0'];       //Handle Digits
+      offset = '0';       //Handle Digits
     else if (*text >= 'A' && *text <= 'Z')
-      bmp = kCharTable[*text - 55];        //Handle A-U
+      offset = 55;        //Handle A-Z
     else if (*text >= 'a' && *text <= 'z')
-      bmp = kCharTable[*text - 87];        //Handle A-U
-    gDisplayCharBuffer[frame][cursor--] = bmp;
+      offset = 87;        //Handle a-z
+    gDisplayCharBuffer[frame][cursor--] = offset ? pgm_read_byte(kCharTable + *text - offset) : 0;
     ++text;
   }
   if (frame >= gActiveFrames)
@@ -150,9 +177,10 @@ uint32_t millis(void)
 
 ISR(DISPLAY_TIMER_VECTOR) 
 {
-  if (++gDisplayTick & 1)
+  static uint8_t tick = 0;
+  if (tick ^= 1) 
     ++gDisplayMillis;    //Increment global millis counter on every other tick
-  
+
   DISPLAY_CHAR_SELECT_OUTPUT_REG &= ~kDisplayCharSelectPinMask; //Bring all digit select pins low
   
   if(!gActiveFrames)    //Short-circuit when no screens active
@@ -171,5 +199,5 @@ ISR(DISPLAY_TIMER_VECTOR)
   }
   
   if (++gDisplayCharCursor == DISPLAY_CHAR_COUNT + 16)  //Char scan with dummy cycles to reduce power consumption
-    gDisplayCharCursor = gDisplayCharBuffer[gFrameCursor][0] ? 0 : 1; //Skip colon index 0 if not active
+    gDisplayCharCursor = 0; //Skip colon index 0 if not active
 }

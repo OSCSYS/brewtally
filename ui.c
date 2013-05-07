@@ -2,47 +2,36 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <avr/io.h> 
 
 #include "buttons.h"
-#include "calcs.h"
 #include "display.h"
-#include "hwprofile.h"
 #include "status.h"
 
-enum UiState {
-  kUiStateOff,
-  kUiStateNumStates
+//Sample size in ounces
+static const uint8_t kSampleSize = 4;
+
+static uint16_t gUiCount = 1;
+
+enum StateEvent {
+  kStateEnter,
+  kStateUpdate,
+  kStateExit
 };
 
-static uint16_t gUiCount = 0;
+void ui_state_count(enum StateEvent);
+void ui_state_ounces(enum StateEvent);
+void ui_state_gallons(enum StateEvent);
+void ui_state_elapsed(enum StateEvent);
 
-void ui_state_enter(enum UiState state);
-uint8_t ui_setup_reset(struct BrewTallySettings *settings);
-uint8_t ui_setup_save(struct BrewTallySettings *settings);
-uint8_t ui_get_yes_no(uint8_t value, char displayYes[], char displayNo[]);
+void (*gUiStateFunc)(enum StateEvent) = &ui_state_count;
 
-struct menuItem {
-  char title[4];
-  uint8_t (*menuFunc)(struct BrewTallySettings*);
-};
-
-static const struct menuItem kSettingsMenu[] = {
-  {"rSt", ui_setup_reset},
-  {"SEt", ui_setup_save}
-};
-
-static struct BrewTallySettings *gUiSettings;
-static enum UiState gUiState = kUiStateOff;
-
-void ui_init(struct BrewTallySettings *settings)
+void ui_init(void)
 {
-  gUiSettings = settings;
-  ui_state_enter(kUiStateOff);
   status_init();
   display_init();
   buttons_init();
-  display_write_string(1, "dCnt"); //Write Last frame first so focus "lands" on first frame
-  display_write_number(0, gUiCount);
+  (*gUiStateFunc)(kStateEnter);
 }
 
 void ui_update()
@@ -52,43 +41,84 @@ void ui_update()
     ++gUiCount;
   if (button_long(kButtonSample))
     --gUiCount;
-  
-  if (button_short(kButtonSelect)) {
-    //Not Implemented
-  }
-  if (button_long(kButtonSelect))
-    gUiCount = 0;
-
   if (lastCount != gUiCount)
-    display_write_number(0, gUiCount);
-}
-
-void ui_state_enter(enum UiState state)
-{
-
-}
-
-void ui_setup(struct BrewTallySettings *settings)
-{
-
-}
-
-uint8_t ui_setup_reset(struct BrewTallySettings *settings)
-{
-  if(ui_get_yes_no(0, "yES", " No")) {
-    settings->header.size = 0; //Invalidate header
-    settings_init(settings); //Initialize Settings
+    (*gUiStateFunc)(kStateUpdate);
+  if (button_short(kButtonSelect))
+    (*gUiStateFunc)(kStateExit);
+  if (button_long(kButtonSelect)) {
+    //Not implemented
   }
-  return 0;
+    
 }
 
-uint8_t ui_setup_save(struct BrewTallySettings *settings)
+void ui_state_count(enum StateEvent event)
 {
-  //Flag for Exit, Settings saved in main() initialization
-  return 1;
+  switch (event) {
+    case kStateEnter:
+      display_write_string(1, " Cnt");
+      
+    case kStateUpdate:
+      display_write_number(0, gUiCount, 0);
+      if (event == kStateEnter) display_frame_focus(1);
+      break;
+      
+    case kStateExit:
+      gUiStateFunc = &ui_state_ounces;
+      (*gUiStateFunc)(kStateEnter);
+      break;
+  }
 }
 
-uint8_t ui_get_yes_no(uint8_t value, char displayYes[], char displayNo[])
+void ui_state_ounces(enum StateEvent event)
 {
-  return 0;
+  switch (event) {
+    case kStateEnter:
+      display_write_string(1, "  oZ");
+      
+    case kStateUpdate:
+      display_write_number(0, gUiCount * kSampleSize, 0);
+      if (event == kStateEnter) display_frame_focus(1);
+      break;
+      
+    case kStateExit:
+      gUiStateFunc = &ui_state_gallons;
+      (*gUiStateFunc)(kStateEnter);
+      break;
+  }
+}
+
+void ui_state_gallons(enum StateEvent event)
+{
+  switch (event) {
+    case kStateEnter:
+      display_write_string(1, " GAL");
+      
+    case kStateUpdate:
+      display_write_number(0, gUiCount * kSampleSize * 100 / 128, 2);
+      if (event == kStateEnter) display_frame_focus(1);
+      break;
+      
+    case kStateExit:
+      gUiStateFunc = &ui_state_elapsed;
+      (*gUiStateFunc)(kStateEnter);
+      break;
+  }
+}
+
+void ui_state_elapsed(enum StateEvent event)
+{
+  switch (event) {
+    case kStateEnter:
+      display_write_string(1, "ELAP");
+      
+    case kStateUpdate:
+      display_write_number(0, gUiCount, 0);
+      if (event == kStateEnter) display_frame_focus(1);
+      break;
+      
+    case kStateExit:
+      gUiStateFunc = &ui_state_count;
+      (*gUiStateFunc)(kStateEnter);
+      break;
+  }
 }

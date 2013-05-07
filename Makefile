@@ -78,7 +78,7 @@ OBJDIR = obj
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = main.c buttons.c calcs.c display.c settings.c status.c ui.c
+SRC = main.c buttons.c display.c status.c ui.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)
@@ -221,7 +221,6 @@ SCANF_LIB_FLOAT = -Wl,-u,vfscanf -lscanf_flt
 #SCANF_LIB = 
 #SCANF_LIB = $(SCANF_LIB_MIN)
 #SCANF_LIB = $(SCANF_LIB_FLOAT)
-
 
 MATH_LIB = -lm
 

@@ -3,11 +3,27 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h> 
 
-#include "hwprofile.h"
-
 #define REPEAT_MASK (kButtonSelect | kButtonSample)  //Enable repeat logic
 #define REPEAT_START 100 //After 1s 
 #define REPEAT_NEXT 50  //Every 500ms
+
+//Buttons input register
+#define BUTTONS_INPUT_REG      PIND
+#define BUTTONS_PULLUP_REG     PORTD
+
+//Buttons direction register
+#define BUTTONS_DIR_REG      DDRD
+
+//Buttons  Interrupts
+#define BUTTON_TIMER_VECTOR              TIMER1_COMPA_vect
+#define BUTTON_TIMER_PRESCALER_REG       TCCR1B
+#define BUTTON_TIMER_MODE_REG            TCCR1B
+#define BUTTON_TIMER_INTERRUPT_MASK_REG  TIMSK
+#define BUTTON_TIMER_COMPARE_VALUE_REG   OCR1A
+static const uint8_t kButtonTimerMode = _BV(WGM12);
+static const uint8_t kButtonTimerInterruptMask = _BV(OCIE1A);
+static const uint16_t kButtonTimerCompareValue = 0x9C40;
+static const uint8_t kButtonTimerPrescaler = _BV(CS10);
 
 //Global Button Variables
 static volatile uint8_t gButtonState;
@@ -41,10 +57,10 @@ void buttons_init(void)
   BUTTONS_PULLUP_REG |= kButtonSelect | kButtonSample;
   
   BUTTON_TIMER_MODE_REG |= kButtonTimerMode;                    //Configure timer for CTC mode 
-  BUTTON_TIMER_INTERRUPT_MASK_REG |= kButtonTimerInterruptMask; //Enable timer interrupt
-  sei();                                                        //Enable global interrupts 
   BUTTON_TIMER_COMPARE_VALUE_REG = kButtonTimerCompareValue;    //Set compare value for a compare rate of 1kHz 
   BUTTON_TIMER_PRESCALER_REG |= kButtonTimerPrescaler;           //Set timer prescaler
+  BUTTON_TIMER_INTERRUPT_MASK_REG |= kButtonTimerInterruptMask; //Enable timer interrupt
+  sei();                                                        //Enable global interrupts 
 }
 
 uint8_t button_press(uint8_t button)
