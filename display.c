@@ -45,6 +45,8 @@ static const uint8_t PROGMEM kCharTable[] = { 0xfc, //0
 };
 
 static const uint8_t kCharDecimal = 0x01;
+static const uint8_t kCharColonOn = 0xff;
+static const uint8_t kCharColonOff = 0x00;
 
 #define DISPLAY_CHAR_COUNT 5
 #define DISPLAY_DIGIT_COUNT 4
@@ -52,6 +54,8 @@ static const uint8_t kCharDecimal = 0x01;
 #define DISPLAY_MAX_NUMBER 9999
 #define DISPLAY_FRAME_COUNT 3
 static const uint16_t kDisplayFrameTime = 2000;
+
+static const uint8_t kDisplayCharColon = 0;
 
 //Display output registers
 #define DISPLAY_CHAR_SELECT_OUTPUT_REG PORTD
@@ -90,6 +94,9 @@ static volatile uint32_t gDisplayFrameTimestamp = 0;
 //Global millis counter
 static volatile uint32_t gDisplayMillis = 0;
 
+//Helper function declarations
+static uint16_t display_pop_time(uint32_t *timeValue);
+
 void display_init(void)
 {
   DISPLAY_CHAR_SELECT_DIR_REG |= kDisplayCharSelectPinMask;       //Enable Digit Select Pins as outputs
@@ -121,7 +128,7 @@ void display_write_number(uint8_t frame, uint16_t number, uint8_t precision)
       || number > DISPLAY_MAX_NUMBER
       || precision >= DISPLAY_DIGIT_COUNT)
     return;
-  
+
   uint8_t spacePad = precision ? precision + 2: 2; //Set minimum number of displayed digits
   for(uint8_t i = 1; i <= DISPLAY_DIGIT_COUNT; ++i) {
     uint8_t digit = number % 10;
@@ -130,7 +137,7 @@ void display_write_number(uint8_t frame, uint16_t number, uint8_t precision)
   }
   if (precision)
     gDisplayCharBuffer[frame][precision + 1] |= kCharDecimal;
-    
+  gDisplayCharBuffer[frame][kDisplayCharColon] = kCharColonOff;
   if (frame >= gActiveFrames)
     gActiveFrames = frame + 1;  
   display_frame_focus(frame);
@@ -140,7 +147,8 @@ void display_write_string(uint8_t frame, const char *text)
 {
   if (frame >= DISPLAY_FRAME_COUNT)
     return;
-  uint8_t cursor = DISPLAY_DIGIT_COUNT;
+
+    uint8_t cursor = DISPLAY_DIGIT_COUNT;
   while(*text && cursor) {
     uint8_t offset = 0;
     if(*text >= '0' && *text <= '9')
@@ -152,9 +160,36 @@ void display_write_string(uint8_t frame, const char *text)
     gDisplayCharBuffer[frame][cursor--] = offset ? pgm_read_byte(kCharTable + *text - offset) : 0;
     ++text;
   }
+  gDisplayCharBuffer[frame][kDisplayCharColon] = kCharColonOff;
   if (frame >= gActiveFrames)
     gActiveFrames = frame + 1;  
   display_frame_focus(frame);
+}
+
+//Note this implementation assumes 4-digit display
+void display_write_time(uint8_t frame, uint32_t timeValue)
+{
+  if (frame >= DISPLAY_FRAME_COUNT)
+    return;
+
+  timeValue /= 1000; //Convert to seconds
+  //Time values as uint16_t to allow for scaling later
+  uint16_t seconds = display_pop_time(&timeValue);
+  uint16_t minutes = display_pop_time(&timeValue);
+  uint16_t hours = display_pop_time(&timeValue);
+  
+  if (hours > 99) hours = 99;
+  timeValue = hours ? hours * 100 + minutes : minutes * 100 + seconds;
+  display_write_number(frame, timeValue, 3);     //Set max precision to force 0-padding
+  gDisplayCharBuffer[frame][4] &= ~kCharDecimal; //Remove decimal created by precision
+  gDisplayCharBuffer[frame][kDisplayCharColon] = kCharColonOn;
+}
+
+static uint16_t display_pop_time(uint32_t *timeValue)
+{
+  uint16_t returnValue = *timeValue % 60;
+  *timeValue /= 60;
+  return returnValue;
 }
 
 void display_frame_focus(uint8_t frame) {
@@ -164,7 +199,6 @@ void display_frame_focus(uint8_t frame) {
   }
 }
 
-#ifdef DISPLAY_ENABLE_MILLIS
 uint32_t millis(void)
 {
   unsigned long ms;
@@ -173,7 +207,6 @@ uint32_t millis(void)
   }
   return ms;
 }
-#endif
 
 ISR(DISPLAY_TIMER_VECTOR) 
 {

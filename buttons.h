@@ -5,8 +5,8 @@
 #include <avr/io.h> 
 
 enum ButtonMask {
-  kButtonSelect = _BV(3),
-  kButtonSample = _BV(2)
+  kButtonSelect = _BV(2),
+  kButtonSample = _BV(3)
 };
 
 //Function declarations

@@ -17,10 +17,11 @@ void display_write_number(uint8_t frame, uint16_t number, uint8_t precision);
 //Write a string (limited to display size, limited char support 0-9, A-U)
 void display_write_string(uint8_t frame, const char* text);
 
+//Write timeValue in milliseconds as HH:MM or MM:SS
+void display_write_time(uint8_t frame, uint32_t timeValue);
+
 void display_frame_focus(uint8_t frame);
 
-#ifdef DISPLAY_ENABLE_MILLIS
 uint32_t millis(void);
-#endif
 
 #endif

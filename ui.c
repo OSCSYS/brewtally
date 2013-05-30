@@ -12,10 +12,12 @@
 static const uint8_t kSampleSize = 4;
 
 static uint16_t gUiCount = 1;
+static uint32_t gUiSampleTime = 0;
 
 enum StateEvent {
   kStateEnter,
   kStateUpdate,
+  kStateTimer,
   kStateExit
 };
 
@@ -37,12 +39,20 @@ void ui_init(void)
 void ui_update()
 {
   uint16_t lastCount = gUiCount;
-  if (button_short(kButtonSample))
+  static uint32_t refreshTime = 0;
+  uint32_t timestamp = millis();
+  if (button_short(kButtonSample)) {
     ++gUiCount;
+    gUiSampleTime = timestamp;
+  }
   if (button_long(kButtonSample))
     --gUiCount;
   if (lastCount != gUiCount)
     (*gUiStateFunc)(kStateUpdate);
+  if (timestamp - refreshTime > 999) {
+    (*gUiStateFunc)(kStateTimer);
+    refreshTime = timestamp;
+  }
   if (button_short(kButtonSelect))
     (*gUiStateFunc)(kStateExit);
   if (button_long(kButtonSelect)) {
@@ -55,11 +65,15 @@ void ui_state_count(enum StateEvent event)
 {
   switch (event) {
     case kStateEnter:
+      ui_state_count(kStateUpdate);
       display_write_string(1, " Cnt");
+      break;
       
     case kStateUpdate:
       display_write_number(0, gUiCount, 0);
-      if (event == kStateEnter) display_frame_focus(1);
+      break;
+      
+    case kStateTimer:
       break;
       
     case kStateExit:
@@ -73,11 +87,15 @@ void ui_state_ounces(enum StateEvent event)
 {
   switch (event) {
     case kStateEnter:
+      ui_state_ounces(kStateUpdate);
       display_write_string(1, "  oZ");
+      break;
       
     case kStateUpdate:
       display_write_number(0, gUiCount * kSampleSize, 0);
-      if (event == kStateEnter) display_frame_focus(1);
+      break;
+      
+    case kStateTimer:
       break;
       
     case kStateExit:
@@ -91,11 +109,14 @@ void ui_state_gallons(enum StateEvent event)
 {
   switch (event) {
     case kStateEnter:
+      ui_state_gallons(kStateUpdate);
       display_write_string(1, " GAL");
-      
+      break;
     case kStateUpdate:
       display_write_number(0, gUiCount * kSampleSize * 100 / 128, 2);
-      if (event == kStateEnter) display_frame_focus(1);
+      break;
+      
+    case kStateTimer:
       break;
       
     case kStateExit:
@@ -109,11 +130,13 @@ void ui_state_elapsed(enum StateEvent event)
 {
   switch (event) {
     case kStateEnter:
+      ui_state_elapsed(kStateUpdate);
       display_write_string(1, "ELAP");
-      
+      break;
+
     case kStateUpdate:
-      display_write_number(0, gUiCount, 0);
-      if (event == kStateEnter) display_frame_focus(1);
+    case kStateTimer:
+      display_write_time(0, millis() - gUiSampleTime);
       break;
       
     case kStateExit:
