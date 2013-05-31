@@ -78,7 +78,7 @@ OBJDIR = obj
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = main.c buttons.c display.c status.c ui.c
+SRC = main.c buttons.c display.c led.c throbber.c ui.c
 
 
 # List C++ source files here. (C dependencies are automatically generated.)

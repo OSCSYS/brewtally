@@ -52,7 +52,7 @@ static const uint8_t kCharColonOff = 0x00;
 #define DISPLAY_DIGIT_COUNT 4
 #define DISPLAY_DIGIT_OFFSET 1
 #define DISPLAY_MAX_NUMBER 9999
-#define DISPLAY_FRAME_COUNT 3
+#define DISPLAY_FRAME_COUNT 4
 static const uint16_t kDisplayFrameTime = 2000;
 
 static const uint8_t kDisplayCharColon = 0;

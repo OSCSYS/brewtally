@@ -6,34 +6,34 @@
 
 #include "buttons.h"
 #include "display.h"
-#include "status.h"
+#include "throbber.h"
 
 //Sample size in ounces
 static const uint8_t kSampleSize = 4;
 
-static uint16_t gUiCount = 1;
+static uint16_t gUiCount = 0;
 static uint32_t gUiSampleTime = 0;
 
-enum StateEvent {
-  kStateEnter,
-  kStateUpdate,
-  kStateTimer,
-  kStateExit
+enum UIStateEvent {
+  kUIStateEnter,
+  kUIStateUpdate,
+  kUIStateTimer,
+  kUIStateExit
 };
 
-void ui_state_count(enum StateEvent);
-void ui_state_ounces(enum StateEvent);
-void ui_state_gallons(enum StateEvent);
-void ui_state_elapsed(enum StateEvent);
+void ui_state_count(enum UIStateEvent);
+void ui_state_ounces(enum UIStateEvent);
+void ui_state_gallons(enum UIStateEvent);
+void ui_state_elapsed(enum UIStateEvent);
 
-void (*gUiStateFunc)(enum StateEvent) = &ui_state_count;
+void (*gUiStateFunc)(enum UIStateEvent) = &ui_state_count;
 
 void ui_init(void)
 {
-  status_init();
+  throbber_init();
   display_init();
   buttons_init();
-  (*gUiStateFunc)(kStateEnter);
+  (*gUiStateFunc)(kUIStateEnter);
 }
 
 void ui_update()
@@ -44,104 +44,106 @@ void ui_update()
   if (button_short(kButtonSample)) {
     ++gUiCount;
     gUiSampleTime = timestamp;
+    throbber_set(gUiSampleTime);
   }
   if (button_long(kButtonSample))
     --gUiCount;
   if (lastCount != gUiCount)
-    (*gUiStateFunc)(kStateUpdate);
+    (*gUiStateFunc)(kUIStateUpdate);
+
   if (timestamp - refreshTime > 999) {
-    (*gUiStateFunc)(kStateTimer);
+    (*gUiStateFunc)(kUIStateTimer);
     refreshTime = timestamp;
   }
+  throbber_update(timestamp);
   if (button_short(kButtonSelect))
-    (*gUiStateFunc)(kStateExit);
+    (*gUiStateFunc)(kUIStateExit);
   if (button_long(kButtonSelect)) {
     //Not implemented
   }
-    
 }
 
-void ui_state_count(enum StateEvent event)
+void ui_state_count(enum UIStateEvent event)
 {
   switch (event) {
-    case kStateEnter:
-      ui_state_count(kStateUpdate);
+    case kUIStateEnter:
+      ui_state_count(kUIStateUpdate);
       display_write_string(1, " Cnt");
       break;
       
-    case kStateUpdate:
+    case kUIStateUpdate:
       display_write_number(0, gUiCount, 0);
       break;
       
-    case kStateTimer:
+    case kUIStateTimer:
       break;
       
-    case kStateExit:
+    case kUIStateExit:
       gUiStateFunc = &ui_state_ounces;
-      (*gUiStateFunc)(kStateEnter);
+      (*gUiStateFunc)(kUIStateEnter);
       break;
   }
 }
 
-void ui_state_ounces(enum StateEvent event)
+void ui_state_ounces(enum UIStateEvent event)
 {
   switch (event) {
-    case kStateEnter:
-      ui_state_ounces(kStateUpdate);
+    case kUIStateEnter:
+      ui_state_ounces(kUIStateUpdate);
       display_write_string(1, "  oZ");
       break;
       
-    case kStateUpdate:
+    case kUIStateUpdate:
       display_write_number(0, gUiCount * kSampleSize, 0);
       break;
       
-    case kStateTimer:
+    case kUIStateTimer:
       break;
       
-    case kStateExit:
+    case kUIStateExit:
       gUiStateFunc = &ui_state_gallons;
-      (*gUiStateFunc)(kStateEnter);
+      (*gUiStateFunc)(kUIStateEnter);
       break;
   }
 }
 
-void ui_state_gallons(enum StateEvent event)
+void ui_state_gallons(enum UIStateEvent event)
 {
   switch (event) {
-    case kStateEnter:
-      ui_state_gallons(kStateUpdate);
+    case kUIStateEnter:
+      ui_state_gallons(kUIStateUpdate);
       display_write_string(1, " GAL");
       break;
-    case kStateUpdate:
+    case kUIStateUpdate:
       display_write_number(0, gUiCount * kSampleSize * 100 / 128, 2);
       break;
       
-    case kStateTimer:
+    case kUIStateTimer:
       break;
       
-    case kStateExit:
+    case kUIStateExit:
       gUiStateFunc = &ui_state_elapsed;
-      (*gUiStateFunc)(kStateEnter);
+      (*gUiStateFunc)(kUIStateEnter);
       break;
   }
 }
 
-void ui_state_elapsed(enum StateEvent event)
+void ui_state_elapsed(enum UIStateEvent event)
 {
   switch (event) {
-    case kStateEnter:
-      ui_state_elapsed(kStateUpdate);
+    case kUIStateEnter:
+      ui_state_elapsed(kUIStateUpdate);
       display_write_string(1, "ELAP");
       break;
 
-    case kStateUpdate:
-    case kStateTimer:
+    case kUIStateUpdate:
+    case kUIStateTimer:
       display_write_time(0, millis() - gUiSampleTime);
       break;
       
-    case kStateExit:
+    case kUIStateExit:
       gUiStateFunc = &ui_state_count;
-      (*gUiStateFunc)(kStateEnter);
+      (*gUiStateFunc)(kUIStateEnter);
       break;
   }
 }
