@@ -9,17 +9,12 @@ static const uint16_t kThrobEventTimeMax = 1800;    //Maximum time in seconds be
 
 enum ThrobStateEvent {
   kThrobStateEnter,
-  kThrobStateUpdate,
-  kThrobStateExit
+  kThrobStateUpdate
 };
 
-static int16_t gThrobPwmStep = 0;         //Current PWM step position in period
-static int16_t gThrobPwmValue = 0;         //Current PWM brightness level; Max = kThrobPWMSteps
-static int8_t gThrobPwmInc = 0;        //Number of steps to increment per update; sign value sets direction
 static uint32_t gThrobEventTime = 0;         //Timestamp of last event
 
-void throbber_state_active_up(enum ThrobStateEvent event, uint32_t now);
-void throbber_state_active_down(enum ThrobStateEvent event, uint32_t now);
+void throbber_state_active(enum ThrobStateEvent event, uint32_t now);
 void throbber_state_wait(enum ThrobStateEvent event, uint32_t now);
 
 void (*gThrobStateFunc)(enum ThrobStateEvent, uint32_t) = &throbber_state_wait;
@@ -43,7 +38,6 @@ void throbber_update(uint32_t now)
 
 void throbber_change_state(void (*state)(enum ThrobStateEvent, uint32_t), uint32_t now)
 {
-    (*gThrobStateFunc)(kThrobStateExit, now);
     gThrobStateFunc = state;
     (*gThrobStateFunc)(kThrobStateEnter, now);
 }
@@ -70,59 +64,34 @@ uint32_t throbber_calculate_delay(uint32_t now)
   return now + kThrobWaitTimeMax - offset;
 }
 
-void throbber_pwm_set(uint8_t pwmStep, uint8_t pwmValue)
+void throbber_state_active(enum ThrobStateEvent event, uint32_t now)
 {
-  if (pwmStep < pwmValue)
-    led_set();
-  else
-    led_clear();
-}
-
-void throbber_state_active_up(enum ThrobStateEvent event, uint32_t now)
-{
+  static int16_t step = 0;      //Current PWM step position in period
+  static int16_t value = 0;     //Current PWM brightness level; Max = kThrobPWMSteps
+  static int8_t increment = 0;        //Number of steps to increment per update; sign value sets direction
   switch (event) {
   case kThrobStateEnter:
-    gThrobPwmStep = 0;
-    gThrobPwmInc = throbber_calculate_speed(now);
-    gThrobPwmValue = gThrobPwmInc;
+    step = 1;
+    value = increment = throbber_calculate_speed(now);
     break;
   case kThrobStateUpdate:
-    if (gThrobPwmValue > kThrobPWMSteps) {
-      throbber_change_state(&throbber_state_active_down, now);
-      return;
+    if (step < value)
+      led_set();
+    else
+      led_clear();
+    if (++step > kThrobPWMSteps) {
+      step = 1;
+      value += increment;
     }
-    if (++gThrobPwmStep > kThrobPWMSteps) {
-      gThrobPwmStep = 0;
-      gThrobPwmValue += gThrobPwmInc;
+    if (value > kThrobPWMSteps) {
+      value = kThrobPWMSteps;
+      increment *= -1;
     }
-    throbber_pwm_set(gThrobPwmStep, gThrobPwmValue);
-    break;
-  case kThrobStateExit:
-    break;
-  }
-}
-
-void throbber_state_active_down(enum ThrobStateEvent event, uint32_t now)
-{
-  switch (event) {
-  case kThrobStateEnter:
-    gThrobPwmStep = kThrobPWMSteps;
-    gThrobPwmInc *= -1;
-    gThrobPwmValue = kThrobPWMSteps;
-    break;
-  case kThrobStateUpdate:
-    if (--gThrobPwmStep < 0) {
-      gThrobPwmStep = kThrobPWMSteps;
-      gThrobPwmValue += gThrobPwmInc;
-    }
-    if (gThrobPwmValue < 0) {
+    if (value < 1) {
+      led_clear();
       throbber_change_state(&throbber_state_wait, now);
       return;
     }
-    throbber_pwm_set(gThrobPwmStep, gThrobPwmValue);
-    break;
-  case kThrobStateExit:
-    led_clear();
     break;
   }
 }
@@ -136,9 +105,7 @@ void throbber_state_wait(enum ThrobStateEvent event, uint32_t now)
     break;
   case kThrobStateUpdate:
     if (now > exitTime)
-      throbber_change_state(&throbber_state_active_up, now);
-    break;
-  case kThrobStateExit:
+      throbber_change_state(&throbber_state_active, now);
     break;
   }
 }
