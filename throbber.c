@@ -2,7 +2,7 @@
 
 #include "led.h"
 
-static const uint16_t kThrobPWMSteps = 180;         //Number of steps in PWM period
+static const int16_t kThrobPWMSteps = 180;          //Number of steps in PWM period
 static const uint8_t kThrobMaxSpeed = 30;           //Number of steps in PWM period
 static const uint16_t kThrobWaitTimeMax = 5000;     //Maximum wait time in ms between sequence
 static const uint16_t kThrobEventTimeMax = 1800;    //Maximum time in seconds between events
