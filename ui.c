@@ -9,7 +9,6 @@
 #include "throbber.h"
 
 static const uint32_t kUiSleepTimeout = 7200000UL;
-static const uint32_t kUiButtonTimeout = 60000UL;
 
 static uint16_t gUiCount = 0;
 static uint32_t gUiSampleTime = 0;
@@ -47,10 +46,8 @@ void ui_update()
 {
   if(!gUiStateFunc) {
     //Sleep Logic
-    if (button_press(kButtonSelect | kButtonSample)) {
-      ui_update_sleep_timer(millis() + kUiButtonTimeout);
+    if (button_press(kButtonSelect | kButtonSample))
       ui_change_state(&ui_state_count);
-    }
     return;
   }
   uint32_t timestamp = millis();
@@ -66,14 +63,12 @@ void ui_update()
     ++gUiCount;
     gUiSampleTime = timestamp;
     throbber_set(gUiSampleTime);
-    ui_update_sleep_timer(timestamp + kUiSleepTimeout);
+    gUiSleepTime = timestamp + kUiSleepTimeout;
   }
   if (button_long(kButtonSample))
     --gUiCount;
-  if (button_short(kButtonSelect)) {
-    ui_update_sleep_timer(timestamp + kUiButtonTimeout);
+  if (button_short(kButtonSelect))
     (*gUiStateFunc)(kUIStateExit);
-  }
   if (button_long(kButtonSelect))
     ui_configure_menu();
   if (lastCount != gUiCount)
@@ -172,11 +167,7 @@ void ui_configure_menu(void)
 
 void ui_change_state(void (*state)(enum UIStateEvent))
 {
+  gUiSleepTime = millis() + kUiSleepTimeout;
   gUiStateFunc = state;
   (*gUiStateFunc)(kUIStateEnter);
-}
-
-void ui_update_sleep_timer(uint32_t timeout)
-{
-  if (timeout > gUiSleepTime) gUiSleepTime = timeout;
 }
