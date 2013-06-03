@@ -8,6 +8,9 @@
 //Function declarations
 void display_init(void);
 
+//Set brightness value between 0 (minimum bright) and 25 (full bright)
+void display_set_brightness(uint8_t brightness);
+
 //Reset buffer and clear frame count
 void display_clear(void);
 

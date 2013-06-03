@@ -83,6 +83,7 @@ static const uint8_t kDisplayTimerInterruptMask = _BV(OCIE0A);
 static const uint8_t kDisplayTimerCompareValue = 0x1f;
 static const uint8_t kDisplayTimerPrescaler = (_BV(CS00) | _BV(CS01));
 
+static const uint8_t kDisplayMaxBrightness = 25;
 
 //Global Char values for timer interrupt ISRs
 static volatile uint8_t gDisplayCharBuffer[DISPLAY_FRAME_COUNT][DISPLAY_CHAR_COUNT];
@@ -91,13 +92,15 @@ static volatile uint8_t gFrameCursor = 0;
 static volatile uint8_t gDisplayCharCursor = 0;
 static volatile uint32_t gDisplayFrameTimestamp = 0;
 
+static uint8_t gDisplayScanIdle = 0;
+
 //Global millis counter
 static volatile uint32_t gDisplayMillis = 0;
 
 //Helper function declarations
 static uint16_t display_pop_time(uint32_t *timeValue);
 
-void display_init(void)
+void display_init()
 {
   DISPLAY_CHAR_SELECT_DIR_REG |= kDisplayCharSelectPinMask;       //Enable Digit Select Pins as outputs
   DISPLAY_CHAR_DIR_REG |= kDisplayCharPinMask;                    //Enable Char pins as outputs
@@ -110,6 +113,12 @@ void display_init(void)
   display_clear();
   DISPLAY_TIMER_INTERRUPT_MASK_REG |= kDisplayTimerInterruptMask; //Enable timer interrupt
   sei();                                                          //Enable global interrupts 
+}
+
+void display_set_brightness(uint8_t brightness)
+{
+  if (brightness > kDisplayMaxBrightness) brightness = kDisplayMaxBrightness;
+  gDisplayScanIdle = kDisplayMaxBrightness - brightness;
 }
 
 void display_clear(void)
@@ -231,6 +240,6 @@ ISR(DISPLAY_TIMER_VECTOR)
     gDisplayFrameTimestamp = gDisplayMillis;
   }
   
-  if (++gDisplayCharCursor == DISPLAY_CHAR_COUNT + 16)  //Char scan with dummy cycles to reduce power consumption
+  if (++gDisplayCharCursor == DISPLAY_CHAR_COUNT + gDisplayScanIdle)  //Char scan with dummy cycles to reduce power consumption
     gDisplayCharCursor = 0; //Skip colon index 0 if not active
 }

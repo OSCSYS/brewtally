@@ -16,6 +16,10 @@ static uint32_t gThrobEventTime = 0;         //Timestamp of last event
 
 void throbber_state_active(enum ThrobStateEvent event, uint32_t now);
 void throbber_state_wait(enum ThrobStateEvent event, uint32_t now);
+void throbber_change_state(void (*state)(enum ThrobStateEvent, uint32_t), uint32_t now);
+uint16_t throbber_event_elapsed(uint32_t now);
+uint8_t throbber_calculate_speed(uint32_t now);
+uint32_t throbber_calculate_delay(uint32_t now);
 
 void (*gThrobStateFunc)(enum ThrobStateEvent, uint32_t) = &throbber_state_wait;
 
@@ -34,34 +38,6 @@ void throbber_set(uint32_t timestamp)
 void throbber_update(uint32_t now)
 {
   (*gThrobStateFunc)(kThrobStateUpdate, now);
-}
-
-void throbber_change_state(void (*state)(enum ThrobStateEvent, uint32_t), uint32_t now)
-{
-    gThrobStateFunc = state;
-    (*gThrobStateFunc)(kThrobStateEnter, now);
-}
-
-uint16_t throbber_event_elapsed(uint32_t now)
-{
-  if (!gThrobEventTime)
-    return kThrobEventTimeMax;
-  uint32_t eventTime = (now - gThrobEventTime) / 1000;
-  return eventTime < kThrobEventTimeMax ? eventTime : kThrobEventTimeMax;
-}
-
-uint8_t throbber_calculate_speed(uint32_t now)
-{
-  static uint8_t divisor = kThrobEventTimeMax / kThrobMaxSpeed;
-  uint32_t speed = throbber_event_elapsed(now) / divisor;
-  return speed ? speed : 1;
-}
-
-uint32_t throbber_calculate_delay(uint32_t now)
-{
-  static uint32_t divisor = kThrobEventTimeMax * 1000UL / kThrobWaitTimeMax;
-  uint32_t offset = throbber_event_elapsed(now) * 1000UL / divisor;
-  return now + kThrobWaitTimeMax - offset;
 }
 
 void throbber_state_active(enum ThrobStateEvent event, uint32_t now)
@@ -108,4 +84,32 @@ void throbber_state_wait(enum ThrobStateEvent event, uint32_t now)
       throbber_change_state(&throbber_state_active, now);
     break;
   }
+}
+
+void throbber_change_state(void (*state)(enum ThrobStateEvent, uint32_t), uint32_t now)
+{
+    gThrobStateFunc = state;
+    (*gThrobStateFunc)(kThrobStateEnter, now);
+}
+
+uint16_t throbber_event_elapsed(uint32_t now)
+{
+  if (!gThrobEventTime)
+    return kThrobEventTimeMax;
+  uint32_t eventTime = (now - gThrobEventTime) / 1000;
+  return eventTime < kThrobEventTimeMax ? eventTime : kThrobEventTimeMax;
+}
+
+uint8_t throbber_calculate_speed(uint32_t now)
+{
+  static uint8_t divisor = kThrobEventTimeMax / kThrobMaxSpeed;
+  uint32_t speed = throbber_event_elapsed(now) / divisor;
+  return speed ? speed : 1;
+}
+
+uint32_t throbber_calculate_delay(uint32_t now)
+{
+  static uint32_t divisor = kThrobEventTimeMax * 1000UL / kThrobWaitTimeMax;
+  uint32_t offset = throbber_event_elapsed(now) * 1000UL / divisor;
+  return now + kThrobWaitTimeMax - offset;
 }
