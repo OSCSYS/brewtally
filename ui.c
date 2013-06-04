@@ -5,15 +5,14 @@
 #include <avr/io.h> 
 
 #include "buttons.h"
+#include "config.h"
 #include "display.h"
 #include "throbber.h"
 
 static const uint32_t kUiSleepTimeout = 7200000UL;
 
-static uint16_t gUiCount = 0;
 static uint32_t gUiSampleTime = 0;
 static uint32_t gUiSleepTime = 0;
-static uint8_t gUiSampleSize = 4; //Sample size in ounces
 
 enum UIStateEvent {
   kUIStateEnter,
@@ -35,10 +34,10 @@ void (*gUiStateFunc)(enum UIStateEvent) = 0;
 
 void ui_init(void)
 {
+  config_init();
   throbber_init();
   display_init();
-  uint8_t brightness = 0;
-  display_set_brightness(brightness);
+  display_set_brightness(config_get_brightness());
   buttons_init();
 }
 
@@ -51,7 +50,7 @@ void ui_update()
     return;
   }
   uint32_t timestamp = millis();
-  uint16_t lastCount = gUiCount;
+  uint16_t lastCount = config_get_count();
   static uint32_t refreshTime = 0;
   if (timestamp > gUiSleepTime) {
     throbber_init();
@@ -60,18 +59,18 @@ void ui_update()
     return;
   }
   if (button_short(kButtonSample)) {
-    ++gUiCount;
+    config_set_count(lastCount + 1);
     gUiSampleTime = timestamp;
     throbber_set(gUiSampleTime);
     gUiSleepTime = timestamp + kUiSleepTimeout;
   }
   if (button_long(kButtonSample))
-    --gUiCount;
+    config_set_count(lastCount - 1);
   if (button_short(kButtonSelect))
     (*gUiStateFunc)(kUIStateExit);
   if (button_long(kButtonSelect))
     ui_configure_menu();
-  if (lastCount != gUiCount)
+  if (lastCount != config_get_count())
     (*gUiStateFunc)(kUIStateUpdate);
   if ((timestamp - refreshTime) / 1000) {
     (*gUiStateFunc)(kUIStateTimer);
@@ -89,7 +88,7 @@ void ui_state_count(enum UIStateEvent event)
       break;
       
     case kUIStateUpdate:
-      display_write_number(0, gUiCount, 0);
+      display_write_number(0, config_get_count(), 0);
       break;
       
     case kUIStateTimer:
@@ -110,7 +109,7 @@ void ui_state_ounces(enum UIStateEvent event)
       break;
       
     case kUIStateUpdate:
-      display_write_number(0, gUiCount * gUiSampleSize, 0);
+      display_write_number(0, config_get_count() * config_get_sample_size(), 0);
       break;
       
     case kUIStateTimer:
@@ -130,7 +129,7 @@ void ui_state_gallons(enum UIStateEvent event)
       display_write_string(1, " GAL");
       break;
     case kUIStateUpdate:
-      display_write_number(0, gUiCount * gUiSampleSize * 100 / 128, 2);
+      display_write_number(0, (uint32_t)config_get_count() * config_get_sample_size() * 100 / 128, 2);
       break;
       
     case kUIStateTimer:
