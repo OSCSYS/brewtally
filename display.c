@@ -41,7 +41,8 @@ static const uint8_t PROGMEM kCharTable[] = { 0xfc, //0
                                               0x00, //W NOT SUPPORTED
                                               0x00, //X NOT SUPPORTED
                                               0x76, //y
-                                              0xda  //Z (dupe of 2)
+                                              0xda, //Z (dupe of 2)
+                                              0xca  //?
 };
 
 static const uint8_t kCharDecimal = 0x01;
@@ -82,8 +83,6 @@ static const uint8_t kDisplayTimerMode = _BV(WGM01);
 static const uint8_t kDisplayTimerInterruptMask = _BV(OCIE0A);
 static const uint8_t kDisplayTimerCompareValue = 0x1f;
 static const uint8_t kDisplayTimerPrescaler = (_BV(CS00) | _BV(CS01));
-
-static const uint8_t kDisplayMaxBrightness = 25;
 
 //Global Char values for timer interrupt ISRs
 static volatile uint8_t gDisplayCharBuffer[DISPLAY_FRAME_COUNT][DISPLAY_CHAR_COUNT];
@@ -166,6 +165,8 @@ void display_write_string(uint8_t frame, const char *text)
       offset = 55;        //Handle A-Z
     else if (*text >= 'a' && *text <= 'z')
       offset = 87;        //Handle a-z
+    else if (*text == '?')
+      offset = 27;
     gDisplayCharBuffer[frame][cursor--] = offset ? pgm_read_byte(kCharTable + *text - offset) : 0;
     ++text;
   }

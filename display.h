@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+static const uint8_t kDisplayMaxBrightness = 25;
+
 //#define DISPLAY_ENABLE_MILLIS
 
 //Function declarations
