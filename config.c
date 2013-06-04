@@ -16,10 +16,10 @@ void config_init(void)
 {
   if (eeprom_read_byte(&gConfigFingerPrint) == CONFIG_FINGER_PRINT)
     return;
-  eeprom_update_byte(&gConfigFingerPrint, CONFIG_FINGER_PRINT);
   config_set_count(CONFIG_DEFAULT_COUNT);
   config_set_sample_size(CONFIG_DEFAULT_SAMPLE_SIZE);
   config_set_brightness(CONFIG_DEFAULT_BRIGHTNESS);
+  eeprom_update_byte(&gConfigFingerPrint, CONFIG_FINGER_PRINT);
 }
 
 uint16_t config_get_count(void)

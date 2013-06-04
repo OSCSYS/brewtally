@@ -39,6 +39,7 @@ void ui_init(void)
   display_init();
   display_set_brightness(config_get_brightness());
   buttons_init();
+  ui_change_state(&ui_state_count);
 }
 
 void ui_update()
