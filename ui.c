@@ -185,9 +185,9 @@ void ui_state_elapsed(enum UIStateEvent event)
 void ui_configure_menu(void)
 {
   struct MenuItem configMenu[] = {
-    { "brit", &ui_configure_brightness },
-    { "size", &ui_configure_size },
-    { " clr", &ui_configure_count },
+    { "dISP", &ui_configure_brightness },
+    { "SIZE", &ui_configure_size },
+    { " Cnt", &ui_configure_count },
     { "EHit", &ui_menu_exit },
   };
   ui_menu("CFG", &configMenu[0], sizeof(configMenu) / sizeof(configMenu[0]));
@@ -238,7 +238,7 @@ uint8_t ui_configure_brightness(void)
     }
     if (brightness != lastValue) {
       display_clear();
-      display_write_string(1, "Brit");
+      display_write_string(1, "dISP");
       display_write_number(0, brightness, 0);
       lastValue = brightness;
       display_set_brightness(brightness);
@@ -272,10 +272,10 @@ uint8_t ui_configure_size(void)
 uint8_t ui_configure_count(void)
 {
   struct MenuItem clearMenu[] = {
-    { "cncl", &ui_menu_exit },
-    { " clr", &ui_clear_count }
+    { "CnCL", &ui_menu_exit },
+    { " CLr", &ui_clear_count }
   };
-  ui_menu("clr?", &clearMenu[0], sizeof(clearMenu) / sizeof(clearMenu[0]));
+  ui_menu("Cnt", &clearMenu[0], sizeof(clearMenu) / sizeof(clearMenu[0]));
   return 0;
 }
 
