@@ -25,6 +25,8 @@ void display_write_string(uint8_t frame, const char* text);
 //Write timeValue in milliseconds as HH:MM or MM:SS
 void display_write_time(uint8_t frame, uint32_t timeValue);
 
+void display_write_raw(uint8_t frame, uint8_t data[]);
+
 void display_frame_focus(uint8_t frame);
 
 uint32_t millis(void);

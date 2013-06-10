@@ -40,16 +40,18 @@ uint8_t ui_configure_brightness(void);
 uint8_t ui_configure_size(void);
 uint8_t ui_configure_count(void);
 uint8_t ui_clear_count(void);
+void ui_display_test(void);
 
 void (*gUiStateFunc)(enum UIStateEvent) = 0;
 
 void ui_init(void)
 {
-  config_init();
   throbber_init();
   display_init();
-  display_set_brightness(config_get_brightness());
   buttons_init();
+  if (config_init())
+    ui_display_test();
+  display_set_brightness(config_get_brightness());
   ui_change_state(&ui_state_count);
 }
 
@@ -285,3 +287,9 @@ uint8_t ui_clear_count(void)
   return 1;
 }
 
+void ui_display_test(void)
+{
+  uint8_t allOn[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  display_write_raw(0, allOn);
+  while (!(button_press(kButtonSelect | kButtonSample))) {}
+}

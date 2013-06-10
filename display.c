@@ -4,6 +4,7 @@
 #include <avr/io.h> 
 #include <avr/pgmspace.h>
 #include <util/atomic.h> 
+#include <string.h>
 
 //Character definitions (PORT BIT TO SEGMENT MAP: ABCDEFGH)
 static const uint8_t PROGMEM kCharTable[] = { 0xfc, //0
@@ -146,8 +147,6 @@ void display_write_number(uint8_t frame, uint16_t number, uint8_t precision)
   if (precision)
     gDisplayCharBuffer[frame][precision + 1] |= kCharDecimal;
   gDisplayCharBuffer[frame][kDisplayCharColon] = kCharColonOff;
-  if (frame >= gActiveFrames)
-    gActiveFrames = frame + 1;  
   display_frame_focus(frame);
 }
 
@@ -171,8 +170,6 @@ void display_write_string(uint8_t frame, const char *text)
     ++text;
   }
   gDisplayCharBuffer[frame][kDisplayCharColon] = kCharColonOff;
-  if (frame >= gActiveFrames)
-    gActiveFrames = frame + 1;  
   display_frame_focus(frame);
 }
 
@@ -195,6 +192,12 @@ void display_write_time(uint8_t frame, uint32_t timeValue)
   gDisplayCharBuffer[frame][kDisplayCharColon] = kCharColonOn;
 }
 
+void display_write_raw(uint8_t frame, uint8_t data[])
+{
+  memcpy(gDisplayCharBuffer[frame], data, DISPLAY_CHAR_COUNT);
+  display_frame_focus(frame);
+}
+
 static uint16_t display_pop_time(uint32_t *timeValue)
 {
   uint16_t returnValue = *timeValue % 60;
@@ -207,6 +210,8 @@ void display_frame_focus(uint8_t frame) {
     gFrameCursor = frame;
     gDisplayFrameTimestamp = gDisplayMillis;
   }
+  if (frame >= gActiveFrames)
+    gActiveFrames = frame + 1;  
 }
 
 uint32_t millis(void)

@@ -12,14 +12,15 @@ uint16_t EEMEM gConfigCount = CONFIG_DEFAULT_COUNT;
 uint8_t EEMEM gConfigSampleSize = CONFIG_DEFAULT_SAMPLE_SIZE;
 uint8_t EEMEM gConfigBrightness = CONFIG_DEFAULT_BRIGHTNESS;
 
-void config_init(void)
+uint8_t config_init(void)
 {
   if (eeprom_read_byte(&gConfigFingerPrint) == CONFIG_FINGER_PRINT)
-    return;
+    return 0;
   config_set_count(CONFIG_DEFAULT_COUNT);
   config_set_sample_size(CONFIG_DEFAULT_SAMPLE_SIZE);
   config_set_brightness(CONFIG_DEFAULT_BRIGHTNESS);
   eeprom_update_byte(&gConfigFingerPrint, CONFIG_FINGER_PRINT);
+  return 1;
 }
 
 uint16_t config_get_count(void)
