@@ -1,6 +1,6 @@
 # Hey Emacs, this is a -*- makefile -*-
 #----------------------------------------------------------------------------
-# WinAVR Makefile Template written by Eric B. Weddington, JÃ¶rg Wunsch, et al.
+# WinAVR Makefile Template written by Eric B. Weddington, Jörg Wunsch, et al.
 #
 # Released to the Public Domain
 #
@@ -41,8 +41,7 @@
 
 
 # MCU name
-MCU = attiny4313
-
+MCU = attiny48
 
 # Processor frequency.
 #     This will define a symbol, F_CPU, in all source code files equal to the 
@@ -261,7 +260,7 @@ LDFLAGS += $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
 # Type: avrdude -c ?
 # to get a full listing.
 #
-AVRDUDE_PROGRAMMER = usbtiny
+AVRDUDE_PROGRAMMER = avrispmkII
 #AVRDUDE_PROGRAMMER = dragon_isp
 
 # com1 = serial port. Use lpt1 to connect to parallel port.
@@ -270,8 +269,8 @@ AVRDUDE_PORT = usb    # programmer connected to serial device
 AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
 AVRDUDE_WRITE_EFUSE = -U efuse:w:0xff:m
-AVRDUDE_WRITE_HFUSE = -U hfuse:w:0xdd:m
-AVRDUDE_WRITE_LFUSE = -U lfuse:w:0xe2:m
+AVRDUDE_WRITE_HFUSE = -U hfuse:w:0xdf:m
+AVRDUDE_WRITE_LFUSE = -U lfuse:w:0xee:m
 
 
 # Uncomment the following if you want avrdude's erase cycle counter.

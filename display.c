@@ -77,12 +77,12 @@ static const uint8_t kDisplayCharSelect[DISPLAY_CHAR_COUNT] = {_BV(0), _BV(1), _
 //Display Timer Configuration
 #define DISPLAY_TIMER_VECTOR              TIMER0_COMPA_vect
 #define DISPLAY_TIMER_MODE_REG            TCCR0A
-#define DISPLAY_TIMER_PRESCALER_REG       TCCR0B
-#define DISPLAY_TIMER_INTERRUPT_MASK_REG  TIMSK
+#define DISPLAY_TIMER_PRESCALER_REG       TCCR0A
+#define DISPLAY_TIMER_INTERRUPT_MASK_REG  TIMSK0
 #define DISPLAY_TIMER_COMPARE_VALUE_REG   OCR0A
-static const uint8_t kDisplayTimerMode = _BV(WGM01);
+static const uint8_t kDisplayTimerMode = _BV(CTC0);
 static const uint8_t kDisplayTimerInterruptMask = _BV(OCIE0A);
-static const uint8_t kDisplayTimerCompareValue = 0x1f;
+static const uint8_t kDisplayTimerCompareValue = 0x3f;
 static const uint8_t kDisplayTimerPrescaler = (_BV(CS00) | _BV(CS01));
 
 //Global Char values for timer interrupt ISRs

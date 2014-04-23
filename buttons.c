@@ -18,12 +18,12 @@
 #define BUTTON_TIMER_VECTOR              TIMER1_COMPA_vect
 #define BUTTON_TIMER_PRESCALER_REG       TCCR1B
 #define BUTTON_TIMER_MODE_REG            TCCR1B
-#define BUTTON_TIMER_INTERRUPT_MASK_REG  TIMSK
+#define BUTTON_TIMER_INTERRUPT_MASK_REG  TIMSK1
 #define BUTTON_TIMER_COMPARE_VALUE_REG   OCR1A
 static const uint8_t kButtonTimerMode = _BV(WGM12);
 static const uint8_t kButtonTimerInterruptMask = _BV(OCIE1A);
-static const uint16_t kButtonTimerCompareValue = 0x9C40;
-static const uint8_t kButtonTimerPrescaler = _BV(CS10);
+static const uint16_t kButtonTimerCompareValue = 0x2710;
+static const uint8_t kButtonTimerPrescaler = _BV(CS11);
 
 //Global Button Variables
 static volatile uint8_t gButtonState;
